@@ -4,7 +4,7 @@
 from urllib.parse import urlparse
 import mysql.connector
 import pandas_datareader.data as web
-import datetime
+from datetime import datetime, timedelta
 
 # company codeのリストを返す
 def company_codes():
@@ -41,7 +41,8 @@ class stockdb():
         if self.mycursor.rowcount == 0:
             return ""
         else:
-            return self.mycursor.fetchone()[0]
+            lastday = self.mycursor.fetchone()[0]
+            return lastday + timedelta(days=1)
 
 
     #
@@ -49,8 +50,7 @@ class stockdb():
         if start_date == "":
             start_date = datetime.datetime(2010, 1, 1)
 
-        # TODO: 開始日指定しているのに全データを取ってきている。
-        # tsd = web.DataReader("6702.JP", "stooq", start="2020/1/1", end="2020/5/5").dropna()
+        # startオプションをちゃんと動かすには、pandas-datareader 0.9.0が必要。
         tsd = web.DataReader(company_code, "stooq", start_date.strftime('%Y/%m/%d')).dropna()
         return tsd
 
