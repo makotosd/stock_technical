@@ -5,10 +5,17 @@ from urllib.parse import urlparse
 import mysql.connector
 import pandas_datareader.data as web
 from datetime import datetime, timedelta
+import requests
+import io
+import pandas as pd
 
 # company codeのリストを返す
 def company_codes():
-    return ['6701.JP', '6702.JP']
+    url = 'http://kabusapo.com/dl-file/dl-stocklist.php'
+    res = requests.get(url).content
+    df = pd.read_csv(io.StringIO(res.decode('utf-8')), header=0, index_col=0)
+    return df.index
+    # return ['6701.JP', '6702.JP']
 
 
 class stockdb():
@@ -48,9 +55,10 @@ class stockdb():
     #
     def get_data_from_stooq(self, company_code, start_date):
         if start_date == "":
-            start_date = datetime.datetime(2010, 1, 1)
+            start_date = datetime(2010, 1, 1)
 
         # startオプションをちゃんと動かすには、pandas-datareader 0.9.0が必要。
+        print("  gathering data since: ", start_date.strftime('%Y/%m/%d'))
         tsd = web.DataReader(company_code, "stooq", start_date.strftime('%Y/%m/%d')).dropna()
         return tsd
 
@@ -73,6 +81,7 @@ class stockdb():
 
     # DBの株価を更新する
     def update_stockdb(self, company_code):
+        print("CompanyCode: ", cc)
 
         ## DBにアクセスしてDB内の最新の日付をゲット
         startdate = self.get_start_date(company_code)
@@ -88,4 +97,4 @@ class stockdb():
 if __name__ == "__main__":
     stockdb = stockdb()
     for cc in company_codes():
-        stockdb.update_stockdb(cc)
+        stockdb.update_stockdb(str(cc) + ".JP")
