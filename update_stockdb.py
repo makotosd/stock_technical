@@ -60,7 +60,11 @@ class stockdb():
         # startオプションをちゃんと動かすには、pandas-datareader 0.9.0が必要。
         print("  gathering data since: ", start_date.strftime('%Y/%m/%d'))
         tsd = web.DataReader(company_code, "stooq", start_date.strftime('%Y/%m/%d')).dropna()
-        return tsd
+        if tsd.index.name == 'Exceeded the daily hits limit':
+            print("## " + tsd.index.name + " ##")
+            exit(-1)
+        else:
+            return tsd
 
     def insert_data(self, company_code, data):
         for date in data.index:
@@ -83,15 +87,14 @@ class stockdb():
     def update_stockdb(self, company_code):
         print("CompanyCode: ", cc)
 
-        ## DBにアクセスしてDB内の最新の日付をゲット
+        # DBにアクセスしてDB内の最新の日付をゲット
         startdate = self.get_start_date(company_code)
 
-        ## stooqにアクセスして、株価を入手
+        # stooqにアクセスして、株価を入手
         stooq_data = self.get_data_from_stooq(company_code, startdate)
 
-        ## DBの更新
+        # DBの更新
         self.insert_data(company_code, stooq_data)
-
 
 
 if __name__ == "__main__":
