@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 import requests
 import io
 import pandas as pd
+import time
+import datetime
 
 # company codeのリストを返す
 def company_codes():
@@ -21,7 +23,7 @@ def company_codes():
 class stockdb():
 
     #
-    def __init__(self):
+    def __init__(self, ccs):
         url = urlparse('mysql://stockdb:bdkcots@192.168.1.11:3306/stockdb')
         self.mydb = mysql.connector.connect(
             host=url.hostname,
@@ -30,6 +32,7 @@ class stockdb():
             database=url.path[1:],
             password=url.password
         )
+        # stockdb の作成
         self.mycursor = self.mydb.cursor(buffered=True)
         sql = 'CREATE TABLE IF NOT EXISTS stockdb ('
         sql += 'date DATE NOT NULL, '
@@ -39,8 +42,36 @@ class stockdb():
         sql += ')'
         self.mycursor.execute(sql)
 
+        # getdatatimedb の作成
+        sql = 'CREATE TABLE IF NOT EXISTS getdatatimedb ('
+        sql += 'cc VARCHAR(16) NOT NULL, '
+        sql += 'datagettime DATETIME, '
+        sql += 'valid boolean,'
+        sql += 'PRIMARY KEY(cc)'
+        sql += ')'
+        self.mycursor.execute(sql)
+
+        # 一旦全部invalid
+        sql = 'UPDATE getdatatimedb SET valid = 0;'
+        self.mycursor.execute(sql)
+
+        # あればUPDATE、なければInsert
+        for cc in ccs:
+            cc = str(cc) + ".JP"
+            sql = 'INSERT INTO getdatatimedb (cc, valid) VALUES ("%s", 1) ' \
+                  'ON DUPLICATE KEY UPDATE cc=VALUES(cc), valid=1;' % (cc)
+            self.mycursor.execute(sql)
+        self.mydb.commit()
+
+
     def __del__(self):
         self.mydb.close()
+
+    def company_codes(self):
+        sql = 'SELECT cc FROM getdatatimedb WHERE valid=1 ORDER BY datagettime ASC;'
+        self.mycursor.execute(sql)
+        ret = self.mycursor.fetchall()
+        return ret
 
     def get_start_date(self, company_code):
         sql = 'SELECT date from %s where cc = "%s" ORDER BY date DESC limit %d;' % ('stockdb', company_code, 1)
@@ -60,6 +91,7 @@ class stockdb():
         # startオプションをちゃんと動かすには、pandas-datareader 0.9.0が必要。
         print("  gathering data since: ", start_date.strftime('%Y/%m/%d'))
         tsd = web.DataReader(company_code, "stooq", start_date.strftime('%Y/%m/%d')).dropna()
+        # tsd = web.DataReader('XJPX/67020', 'quandl', start_date.strftime('%Y/%m/%d'), api_key='ry8isi8NxA5Za6JSesWD').dropna()
         if tsd.index.name == 'Exceeded the daily hits limit':
             print("## " + tsd.index.name + " ##")
             exit(-1)
@@ -80,7 +112,16 @@ class stockdb():
             except mysql.connector.IntegrityError as e:
                 print("history already exist: %s" % e)
 
+        self.mydb.commit()
 
+        today = datetime.datetime.utcnow()
+        sql = 'UPDATE getdatatimedb SET cc="%s", valid=1, datagettime="%s" ' \
+              'WHERE cc="%s" ' % (company_code, today, company_code)
+
+        #sql = 'INSERT INTO getdatatimedb (cc, valid, datagettime) ' \
+        #      'VALUES ("%s", %d, "%s") ' \
+        #      'ON DUPLICATE KEY UPDATE cc=VALUES(cc);' % (company_code, 1, today)
+        self.mycursor.execute(sql)
         self.mydb.commit()
 
     # DBの株価を更新する
@@ -98,6 +139,8 @@ class stockdb():
 
 
 if __name__ == "__main__":
-    stockdb = stockdb()
-    for cc in company_codes():
-        stockdb.update_stockdb(str(cc) + ".JP")
+    stockdb = stockdb(company_codes())
+
+    for cc in stockdb.company_codes():
+        stockdb.update_stockdb(cc[0])
+        time.sleep(20)
