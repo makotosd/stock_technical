@@ -9,7 +9,6 @@ import requests
 import io
 import pandas as pd
 import time
-import datetime
 
 # company codeのリストを返す
 def company_codes():
@@ -114,7 +113,7 @@ class stockdb():
 
         self.mydb.commit()
 
-        today = datetime.datetime.utcnow()
+        today = datetime.utcnow()
         sql = 'UPDATE getdatatimedb SET cc="%s", valid=1, datagettime="%s" ' \
               'WHERE cc="%s" ' % (company_code, today, company_code)
 
