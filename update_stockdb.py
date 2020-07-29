@@ -112,6 +112,10 @@ class stockdb():
                 self.mycursor.execute(sql)
             except mysql.connector.IntegrityError as e:
                 print("history already exist: %s" % e)
+            except mysql.connector.DataError as e:
+                print("dataerror exist: %s\n" % e)
+                print("date: %s, volume: %d\n" % (date, row['Volume']))
+
 
         self.mydb.commit()
 
@@ -157,4 +161,4 @@ if __name__ == "__main__":
 
     for cc in stockdb.company_codes():
         stockdb.update_stockdb(cc[0])
-        time.sleep(5)
+        time.sleep(1)
