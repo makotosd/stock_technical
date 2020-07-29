@@ -38,7 +38,7 @@ class stockdb():
         sql = 'CREATE TABLE IF NOT EXISTS stockdb ('
         sql += 'date DATE NOT NULL, '
         sql += 'cc VARCHAR(16) NOT NULL, '
-        sql += 'open FLOAT, close FLOAT, high FLOAT, low FLOAT, volume INT,'
+        sql += 'open FLOAT, close FLOAT, high FLOAT, low FLOAT, volume BIGINT,'
         sql += 'PRIMARY KEY(date, cc)'
         sql += ')'
         self.mycursor.execute(sql)
