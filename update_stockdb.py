@@ -9,6 +9,8 @@ import requests
 import io
 import pandas as pd
 import time
+import yfinance as yf
+
 
 # company codeのリストを返す
 def company_codes():
@@ -131,15 +133,28 @@ class stockdb():
         startdate = self.get_start_date(company_code)
 
         # stooqにアクセスして、株価を入手
-        stooq_data = self.get_data_from_stooq(company_code, startdate)
+        # stock_data = self.get_data_from_stooq(company_code, startdate)
+        stock_data = self.yfinace(company_code, startdate)
 
         # DBの更新
-        self.insert_data(company_code, stooq_data)
+        self.insert_data(company_code, stock_data)
 
+    def yfinace(self, companycode, start):
+        if start == "":
+            start = datetime(2010, 1, 1).strftime("%Y-%m-%d")
+
+        print("  gathering data since: ", start)
+        companycode = companycode.replace('.JP', '.T')
+        msft = yf.Ticker(companycode)
+
+        # get historical market data
+        hist = msft.history(start=start)
+        # hist_rename = hist.rename(columns={'Open':'open', 'High':'high', 'Low':'low', 'Close':'close', 'Volume':'volume'})
+        return hist
 
 if __name__ == "__main__":
     stockdb = stockdb(company_codes())
 
     for cc in stockdb.company_codes():
         stockdb.update_stockdb(cc[0])
-        time.sleep(20)
+        time.sleep(5)
