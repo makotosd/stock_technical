@@ -106,7 +106,7 @@ class stockdb():
                   ('stockdb',
                    'date', 'cc', 'open', 'close', 'high', 'low', 'volume',
                    date, company_code,
-                   row['Open'], row['Close'], row['High'], row['Low'], row['Volume']
+                   row['Open'], row['Close'], row['High'], row['Low'], int(row['Volume'])
                    )
             try:
                 self.mycursor.execute(sql)
@@ -134,7 +134,7 @@ class stockdb():
 
         # stooqにアクセスして、株価を入手
         # stock_data = self.get_data_from_stooq(company_code, startdate)
-        stock_data = self.yfinace(company_code, startdate)
+        stock_data = self.yfinace(company_code, startdate).dropna()
 
         # DBの更新
         self.insert_data(company_code, stock_data)
