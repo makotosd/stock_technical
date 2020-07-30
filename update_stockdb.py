@@ -3,7 +3,6 @@
 #
 from urllib.parse import urlparse
 import mysql.connector
-import pandas_datareader.data as web
 from datetime import datetime, timedelta
 import requests
 import io
@@ -84,21 +83,6 @@ class stockdb():
             return lastday + timedelta(days=1)
 
 
-    #
-    def get_data_from_stooq(self, company_code, start_date):
-        if start_date == "":
-            start_date = datetime(2010, 1, 1)
-
-        # startオプションをちゃんと動かすには、pandas-datareader 0.9.0が必要。
-        print("  gathering data since: ", start_date.strftime('%Y/%m/%d'))
-        tsd = web.DataReader(company_code, "stooq", start_date.strftime('%Y/%m/%d')).dropna()
-        # tsd = web.DataReader('XJPX/67020', 'quandl', start_date.strftime('%Y/%m/%d'), api_key='ry8isi8NxA5Za6JSesWD').dropna()
-        if tsd.index.name == 'Exceeded the daily hits limit':
-            print("## " + tsd.index.name + " ##")
-            exit(-1)
-        else:
-            return tsd
-
     def insert_data(self, company_code, data):
         for date in data.index:
             row = data.loc[date]
@@ -136,8 +120,7 @@ class stockdb():
         # DBにアクセスしてDB内の最新の日付をゲット
         startdate = self.get_start_date(company_code)
 
-        # stooqにアクセスして、株価を入手
-        # stock_data = self.get_data_from_stooq(company_code, startdate)
+        # yahoo financeにアクセスして、株価を入手
         stock_data = self.yfinace(company_code, startdate).dropna()
 
         # DBの更新
