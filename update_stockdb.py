@@ -9,6 +9,7 @@ import io
 import pandas as pd
 import time
 import yfinance as yf
+import logging
 
 
 # company codeのリストを返す
@@ -95,10 +96,10 @@ class stockdb():
             try:
                 self.mycursor.execute(sql)
             except mysql.connector.IntegrityError as e:
-                print("history already exist: %s" % e)
+                logging.error("history already exist: %s" % e)
             except mysql.connector.DataError as e:
-                print("dataerror exist: %s\n" % e)
-                print("date: %s, volume: %d\n" % (date, row['Volume']))
+                logging.error("dataerror exist: %s\n" % e)
+                logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
 
 
         self.mydb.commit()
@@ -115,7 +116,7 @@ class stockdb():
 
     # DBの株価を更新する
     def update_stockdb(self, company_code):
-        print("CompanyCode: ", cc)
+        logging.info("CompanyCode: %s", cc)
 
         # DBにアクセスしてDB内の最新の日付をゲット
         startdate = self.get_start_date(company_code)
@@ -130,7 +131,7 @@ class stockdb():
         if start == "":
             start = datetime(2010, 1, 1).strftime("%Y-%m-%d")
 
-        print("  gathering data since: ", start)
+        logging.info("  gathering data since: %s", start)
         companycode = companycode.replace('.JP', '.T')
         msft = yf.Ticker(companycode)
 
@@ -140,6 +141,9 @@ class stockdb():
         return hist
 
 if __name__ == "__main__":
+    formatter = '%(levelname)s : %(asctime)s : %(message)s'
+    logging.basicConfig(filename='./update_stockdb.log', level=logging.DEBUG, format=formatter)
+
     stockdb = stockdb(company_codes())
 
     for cc in stockdb.company_codes():
