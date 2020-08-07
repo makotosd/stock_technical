@@ -12,19 +12,10 @@ import yfinance as yf
 import logging
 
 
-# company codeのリストを返す
-def company_codes():
-    url = 'http://kabusapo.com/dl-file/dl-stocklist.php'
-    res = requests.get(url).content
-    df = pd.read_csv(io.StringIO(res.decode('utf-8')), header=0, index_col=0)
-    return df.index
-    # return ['6701.JP', '6702.JP']
-
-
 class stockdb():
 
     #
-    def __init__(self):
+    def __init__(self, m, n):
         url = urlparse('mysql://stockdb:bdkcots@192.168.1.11:3306/stockdb')
         self.mydb = mysql.connector.connect(
             host=url.hostname,
@@ -70,8 +61,10 @@ class stockdb():
         res = requests.get(url).content
         df = pd.read_csv(io.StringIO(res.decode('utf-8')), header=0, index_col=0)
 
+        start = int(len(df.index) / n * m)
+        end = int(len(df.index) / n * (m+1))
         self.CompanyCode = []
-        for cc in list(df.index):
+        for cc in list(df.index)[start:end]:
             self.CompanyCode.append(str(cc) + ".JP")
 
     def __del__(self):
@@ -154,9 +147,9 @@ class stockdb():
 
 if __name__ == "__main__":
     formatter = '%(levelname)s : %(asctime)s : %(message)s'
-    logging.basicConfig(filename='./update_stockdb.log', level=logging.DEBUG, format=formatter)
+    logging.basicConfig(filename='./update_stockdb.log', level=logging.INFO, format=formatter)
 
-    stockdb = stockdb()
+    stockdb = stockdb(0, 2)
 
     for cc in stockdb.company_codes():
         stockdb.update_stockdb(cc)
