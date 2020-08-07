@@ -83,7 +83,7 @@ class stockdb():
         sql = 'SELECT date from %s where cc = "%s" ORDER BY date DESC limit %d;' % ('stockdb', company_code, 1)
         self.mycursor.execute(sql)
         if self.mycursor.rowcount == 0:
-            return datetime(2010, 1, 1)
+            return datetime(2010, 1, 1).date()
         else:
             lastday = self.mycursor.fetchone()[0]
             return lastday + timedelta(days=1)
