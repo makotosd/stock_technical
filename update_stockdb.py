@@ -24,7 +24,7 @@ def company_codes():
 class stockdb():
 
     #
-    def __init__(self, ccs):
+    def __init__(self):
         url = urlparse('mysql://stockdb:bdkcots@192.168.1.11:3306/stockdb')
         self.mydb = mysql.connector.connect(
             host=url.hostname,
@@ -43,6 +43,7 @@ class stockdb():
         sql += ')'
         self.mycursor.execute(sql)
 
+        '''
         # getdatatimedb の作成
         sql = 'CREATE TABLE IF NOT EXISTS getdatatimedb ('
         sql += 'cc VARCHAR(16) NOT NULL, '
@@ -63,22 +64,33 @@ class stockdb():
                   'ON DUPLICATE KEY UPDATE cc=VALUES(cc), valid=1;' % (cc)
             self.mycursor.execute(sql)
         self.mydb.commit()
+        '''
 
+        url = 'http://kabusapo.com/dl-file/dl-stocklist.php'
+        res = requests.get(url).content
+        df = pd.read_csv(io.StringIO(res.decode('utf-8')), header=0, index_col=0)
+
+        self.CompanyCode = []
+        for cc in list(df.index):
+            self.CompanyCode.append(str(cc) + ".JP")
 
     def __del__(self):
         self.mydb.close()
 
     def company_codes(self):
+        '''
         sql = 'SELECT cc FROM getdatatimedb WHERE valid=1 ORDER BY datagettime ASC;'
         self.mycursor.execute(sql)
         ret = self.mycursor.fetchall()
         return ret
+        '''
+        return self.CompanyCode
 
     def get_start_date(self, company_code):
         sql = 'SELECT date from %s where cc = "%s" ORDER BY date DESC limit %d;' % ('stockdb', company_code, 1)
         self.mycursor.execute(sql)
         if self.mycursor.rowcount == 0:
-            return ""
+            return datetime(2010, 1, 1)
         else:
             lastday = self.mycursor.fetchone()[0]
             return lastday + timedelta(days=1)
@@ -101,9 +113,9 @@ class stockdb():
                 logging.error("dataerror exist: %s\n" % e)
                 logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
 
-
         self.mydb.commit()
 
+        '''
         today = datetime.utcnow()
         sql = 'UPDATE getdatatimedb SET cc="%s", valid=1, datagettime="%s" ' \
               'WHERE cc="%s" ' % (company_code, today, company_code)
@@ -113,24 +125,24 @@ class stockdb():
         #      'ON DUPLICATE KEY UPDATE cc=VALUES(cc);' % (company_code, 1, today)
         self.mycursor.execute(sql)
         self.mydb.commit()
+        '''
 
     # DBの株価を更新する
     def update_stockdb(self, company_code):
         logging.info("CompanyCode: %s", cc)
 
         # DBにアクセスしてDB内の最新の日付をゲット
-        startdate = self.get_start_date(company_code)
+        start_date = self.get_start_date(company_code)
 
-        # yahoo financeにアクセスして、株価を入手
-        stock_data = self.yfinace(company_code, startdate).dropna()
+        t = datetime.now().date()  # today
+        if start_date <= t:
+            # yahoo financeにアクセスして、株価を入手
+            stock_data = self.yfinace(company_code, start_date).dropna()
 
-        # DBの更新
-        self.insert_data(company_code, stock_data)
+            # DBの更新
+            self.insert_data(company_code, stock_data)
 
     def yfinace(self, companycode, start):
-        if start == "":
-            start = datetime(2010, 1, 1).strftime("%Y-%m-%d")
-
         logging.info("  gathering data since: %s", start)
         companycode = companycode.replace('.JP', '.T')
         msft = yf.Ticker(companycode)
@@ -144,8 +156,8 @@ if __name__ == "__main__":
     formatter = '%(levelname)s : %(asctime)s : %(message)s'
     logging.basicConfig(filename='./update_stockdb.log', level=logging.DEBUG, format=formatter)
 
-    stockdb = stockdb(company_codes())
+    stockdb = stockdb()
 
     for cc in stockdb.company_codes():
-        stockdb.update_stockdb(cc[0])
+        stockdb.update_stockdb(cc)
         time.sleep(1)
