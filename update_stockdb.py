@@ -34,6 +34,15 @@ class stockdb():
         sql += ') PARTITION BY KEY(cc) PARTITIONS 4096;'
         self.mycursor.execute(sql)
 
+        # stockdb のsubsetの作成
+        self.mycursor = self.mydb.cursor(buffered=True)
+        sql = 'CREATE TABLE IF NOT EXISTS stockdb_sub ('
+        sql += 'date DATE NOT NULL, '
+        sql += 'cc VARCHAR(16) NOT NULL, '
+        sql += 'open FLOAT, close FLOAT, high FLOAT, low FLOAT, volume BIGINT,'
+        sql += 'PRIMARY KEY(date, cc)'
+        sql += ')'
+        self.mycursor.execute(sql)
         '''
         # getdatatimedb の作成
         sql = 'CREATE TABLE IF NOT EXISTS getdatatimedb ('
@@ -89,11 +98,11 @@ class stockdb():
             return lastday + timedelta(days=1)
 
 
-    def insert_data(self, company_code, data):
+    def insert_data(self, company_code, data, tablename):
         for date in data.index:
             row = data.loc[date]
             sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d)' % \
-                  ('stockdb',
+                  (tablename,
                    'date', 'cc', 'open', 'close', 'high', 'low', 'volume',
                    date, company_code,
                    row['Open'], row['Close'], row['High'], row['Low'], int(row['Volume'])
@@ -120,6 +129,12 @@ class stockdb():
         self.mydb.commit()
         '''
 
+    def remove_old_data(self, tablename, num_date):
+        dt = datetime.now().date() - timedelta(days=num_date)
+        sql = 'DELETE FROM %s WHERE date<"%s"' % (tablename, dt)
+        self.mycursor.execute(sql)
+        self.mydb.commit()
+
     # DBの株価を更新する
     def update_stockdb(self, company_code):
         logging.info("CompanyCode: %s", cc)
@@ -133,7 +148,8 @@ class stockdb():
             stock_data = self.yfinace(company_code, start_date).dropna()
 
             # DBの更新
-            self.insert_data(company_code, stock_data)
+            self.insert_data(company_code, stock_data, "stockdb")
+            self.insert_data(company_code, stock_data, "stockdb_sub")
 
     def yfinace(self, companycode, start):
         logging.info("  gathering data since: %s", start)
@@ -154,3 +170,4 @@ if __name__ == "__main__":
     for cc in stockdb.company_codes():
         stockdb.update_stockdb(cc)
         time.sleep(1)
+    stockdb.remove_old_data("stockdb_sub", 7)
