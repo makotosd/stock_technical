@@ -31,7 +31,7 @@ class stockdb():
         sql += 'cc VARCHAR(16) NOT NULL, '
         sql += 'open FLOAT, close FLOAT, high FLOAT, low FLOAT, volume BIGINT,'
         sql += 'PRIMARY KEY(date, cc)'
-        sql += ')'
+        sql += ') PARTITION BY KEY(cc) PARTITIONS 4096;'
         self.mycursor.execute(sql)
 
         '''
@@ -41,7 +41,7 @@ class stockdb():
         sql += 'datagettime DATETIME, '
         sql += 'valid boolean,'
         sql += 'PRIMARY KEY(cc)'
-        sql += ') PARTITION BY KEY(cc) PARTITIONS 4096;'
+        sql += ') '
         self.mycursor.execute(sql)
 
         # 一旦全部invalid
