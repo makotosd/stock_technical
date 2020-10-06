@@ -79,8 +79,10 @@ class stockdb():
         start = int(len(df.index) / n * m)
         end = int(len(df.index) / n * (m+1))
         self.CompanyCode = []
-        for cc in list(df.index)[start:end]:
-            self.CompanyCode.append(str(cc) + ".JP")
+        for index, row in df[start:end].iterrows():
+            if row['市場・商品区分'] != '市場第一部（内国株）' :
+                continue
+            self.CompanyCode.append(str(index) + ".JP")
 
     def __del__(self):
         self.mydb.close()
