@@ -10,6 +10,7 @@ import pandas as pd
 import time
 import yfinance as yf
 import logging
+import urllib.request
 
 
 class stockdb():
@@ -66,9 +67,14 @@ class stockdb():
         self.mydb.commit()
         '''
 
-        url = 'http://kabusapo.com/dl-file/dl-stocklist.php'
-        res = requests.get(url).content
-        df = pd.read_csv(io.StringIO(res.decode('utf-8')), header=0, index_col=0)
+        #url = 'http://kabusapo.com/dl-file/dl-stocklist.php'
+        #res = requests.get(url).content
+        #df = pd.read_csv(io.StringIO(res.decode('utf-8')), header=0, index_col=0)
+
+        url = urllib.request.urlopen('https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls')
+        with open("data_j.xls", "wb") as f:
+            f.write(url.read())
+        df = pd.read_excel("data_j.xls", header=0, index_col=1)
 
         start = int(len(df.index) / n * m)
         end = int(len(df.index) / n * (m+1))
