@@ -11,13 +11,14 @@ import time
 import yfinance as yf
 import logging
 import urllib.request
-
+from sqlalchemy import create_engine
 
 class stockdb():
 
     #
     def __init__(self, m, n):
-        url = urlparse('mysql://stockdb:bdkcots@192.168.1.11:3306/stockdb')
+        url_str = 'mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb'
+        url = urlparse(url_str)
         self.mydb = mysql.connector.connect(
             host=url.hostname,
             port=url.port,
@@ -44,44 +45,21 @@ class stockdb():
         sql += 'PRIMARY KEY(date, cc)'
         sql += ')'
         self.mycursor.execute(sql)
-        '''
-        # getdatatimedb の作成
-        sql = 'CREATE TABLE IF NOT EXISTS getdatatimedb ('
-        sql += 'cc VARCHAR(16) NOT NULL, '
-        sql += 'datagettime DATETIME, '
-        sql += 'valid boolean,'
-        sql += 'PRIMARY KEY(cc)'
-        sql += ') '
-        self.mycursor.execute(sql)
 
-        # 一旦全部invalid
-        sql = 'UPDATE getdatatimedb SET valid = 0;'
-        self.mycursor.execute(sql)
-
-        # あればUPDATE、なければInsert
-        for cc in ccs:
-            cc = str(cc) + ".JP"
-            sql = 'INSERT INTO getdatatimedb (cc, valid) VALUES ("%s", 1) ' \
-                  'ON DUPLICATE KEY UPDATE cc=VALUES(cc), valid=1;' % (cc)
-            self.mycursor.execute(sql)
-        self.mydb.commit()
-        '''
-
-        #url = 'http://kabusapo.com/dl-file/dl-stocklist.php'
-        #res = requests.get(url).content
-        #df = pd.read_csv(io.StringIO(res.decode('utf-8')), header=0, index_col=0)
-
+        # data_jの更新
         url = urllib.request.urlopen('https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls')
         with open("data_j.xls", "wb") as f:
             f.write(url.read())
         df = pd.read_excel("data_j.xls", header=0, index_col=1)
 
+        if m == 0:
+            engine = create_engine(url_str)
+            df.to_sql("data_j", con=engine.connect(), index=True, index_label="cc", if_exists="replace")
+
         start = int(len(df.index) / n * m)
         end = int(len(df.index) / n * (m+1))
         self.CompanyCode = []
         for index, row in df[start:end].iterrows():
-            if row['市場・商品区分'] != '市場第一部（内国株）' :
-                continue
             self.CompanyCode.append(str(index) + ".JP")
 
     def __del__(self):
