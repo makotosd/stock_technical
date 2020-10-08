@@ -36,6 +36,7 @@ class stockdb():
         sql += ') PARTITION BY KEY(cc) PARTITIONS 4096;'
         self.mycursor.execute(sql)
 
+        '''
         # stockdb のsubsetの作成
         self.mycursor = self.mydb.cursor(buffered=True)
         sql = 'CREATE TABLE IF NOT EXISTS stockdb_sub ('
@@ -45,6 +46,7 @@ class stockdb():
         sql += 'PRIMARY KEY(date, cc)'
         sql += ')'
         self.mycursor.execute(sql)
+        '''
 
         # data_jの更新
         url = urllib.request.urlopen('https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls')
@@ -135,7 +137,7 @@ class stockdb():
 
             # DBの更新
             self.insert_data(company_code, stock_data, "stockdb")
-            self.insert_data(company_code, stock_data, "stockdb_sub")
+            # self.insert_data(company_code, stock_data, "stockdb_sub")
 
     def yfinace(self, companycode, start):
         logging.info("  gathering data since: %s", start)
@@ -156,4 +158,4 @@ if __name__ == "__main__":
     for cc in stockdb.company_codes():
         stockdb.update_stockdb(cc)
         time.sleep(1)
-    stockdb.remove_old_data("stockdb_sub", 7)
+    # stockdb.remove_old_data("stockdb_sub", 7)
