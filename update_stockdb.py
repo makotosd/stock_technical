@@ -13,7 +13,7 @@ import logging
 import urllib.request
 from sqlalchemy import create_engine
 
-class stockdb():
+class Stockdb():
 
     #
     def __init__(self, m, n):
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     formatter = '%(levelname)s : %(asctime)s : %(message)s'
     logging.basicConfig(filename='./update_stockdb.log', level=logging.INFO, format=formatter)
 
-    stockdb = stockdb(0, 1)
+    stockdb = Stockdb(0, 1)
 
     for cc in stockdb.company_codes():
         stockdb.update_stockdb(cc)
