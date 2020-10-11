@@ -3,3 +3,5 @@ update_stockdb.log
 update_stockdb.code-workspace
 data_j.xls
 data_j.ods
+output.log
+stockdb.zip

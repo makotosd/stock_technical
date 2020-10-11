@@ -1,0 +1,8 @@
+#
+#
+#
+# scp stockdb.zip
+# unzip stockdb.zip
+# $ mysql -uroot -p 
+# > USE stockdb;
+# > SOURCE C:\\Users\\mm\\Desktop\\stockdb\\stockdb.dump ;
