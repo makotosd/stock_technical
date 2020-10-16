@@ -95,6 +95,10 @@ class Stockdb():
 
 
     def insert_data(self, company_code, data, tablename):
+        if len(data) == 0:
+            logging.info("  No data for %s" % (company_code))
+            return
+
         for date in data.index:
             row = data.loc[date]
             sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d)' % \
@@ -267,7 +271,7 @@ if __name__ == "__main__":
 
     skip = True
     for cc in stockdb.company_codes():
-        if cc == '1380.JP':
+        if cc == '2296.JP':
             skip = False
         if skip:
             continue
