@@ -14,11 +14,30 @@ import urllib.request
 from sqlalchemy import create_engine
 import argparse
 from bs4 import BeautifulSoup
+import re
+
+def is_float(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 class Stockdb():
 
     #
     def __init__(self, m, n):
+        
+        url = urlparse(args.url_db)
+        self.mydb = mysql.connector.connect(
+            host=url.hostname,
+            port=url.port,
+            user=url.username,
+            database=url.path[1:],
+            password=url.password
+        )
+        self.mycursor = self.mydb.cursor(buffered=True)
+
         if args.initdb:
             self.initdb(args.url_db)
 
@@ -42,16 +61,7 @@ class Stockdb():
         self.mydb.close()
 
     def initdb(self, url_str):
-        url = urlparse(url_str)
-        self.mydb = mysql.connector.connect(
-            host=url.hostname,
-            port=url.port,
-            user=url.username,
-            database=url.path[1:],
-            password=url.password
-        )
         # stockdbの削除
-        self.mycursor = self.mydb.cursor(buffered=True)
         sql = 'DROP TABLE IF EXISTS %s ;' % (args.stockdb)
         self.mycursor.execute(sql)
 
@@ -133,7 +143,12 @@ class Stockdb():
             html = requests.get(url, headers=headers)
             soup = BeautifulSoup(html.text,'html.parser')
             table = soup.find(class_="stock_table stock_data_table")
+            if table is None:
+                continue
+
             rows = table.findAll('tr')
+            if rows is None:
+                continue
 
             for row in rows:
                 cells = row.findAll('td')
@@ -152,24 +167,92 @@ class Stockdb():
 
         return df
 
+    # nikkeiのサイトから最新株価を取得
+    def latest_stock_data_from_nikkei(self, company_code):
+
+        headers = {
+           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36',
+        }
+        url = 'https://www.nikkei.com/nkd/company/history/dprice/?scode=%s&ba=1' % (company_code.replace('.JP', ''))
+        html = requests.get(url, headers=headers)
+        soup = BeautifulSoup(html.text,'html.parser')
+        table = soup.find(class_="m-tableType01_table")
+        if table is None:
+            logging.info("no table for %s" % (company_code))
+
+        df = pd.DataFrame()
+        rows = table.findAll('tr')
+        if rows is None:
+            logging.info("no tr for %s" % (company_code))
+
+        for row in rows:
+            t = row.find('th').get_text()
+            mm = re.search(r'(\d+)/', t)  # 月
+            dd = re.search(r'/(\d+)', t)  # 日
+            if mm is None or dd is None:
+                continue
+
+            cells = row.findAll('td')
+            if len(cells) > 0:
+                items = []
+                flag_novalue = False
+                for i in range(6): #open, high, low, close, vol, adj
+                    v = cells[i].get_text().replace(',', '')
+                    if is_float(v):
+                        items.append(float(v))
+                    else:
+                        flag_novalue = True
+                        break
+
+                if flag_novalue:
+                    continue
+
+                items[0] = items[0] * (items[5]/items[3])     #修正後終値で補正
+                items[1] = items[1] * (items[5]/items[3])     #修正後終値で補正
+                items[2] = items[2] * (items[5]/items[3])     #修正後終値で補正
+                items[3] = items[3] * (items[5]/items[3])     #修正後終値で補正
+                items[4] = items[4] * (items[3]/items[5])     #修正後終値で補正(volumeは逆数)
+
+                today = datetime.now()
+                mm = int(mm.groups()[0])
+                dd = int(dd.groups()[0])
+                if today.month < mm:
+                    yy = today.year - 1
+                else:
+                    yy = today.year
+                vday = datetime(yy, mm, dd)
+
+                se = pd.Series(items[0:5], index = ["Open", "High", "Low", "Close", "Volume"], name=vday.strftime('%Y-%m-%d'))
+                df = df.append(se)
+        return df
+
+
+    # 最新株価を返す
+    def get_latest_stock_data(self, company_code):
+        if args.update_by_nikkei:
+            return self.latest_stock_data_from_nikkei(company_code)
+
+        else:
+            # DBにアクセスしてDB内の最新の日付をゲット
+            start_date = self.get_start_date(company_code)
+
+            t = datetime.now().date()  # today
+            if start_date <= t:
+                # yahoo financeにアクセスして、株価を入手
+                return self.yfinace(company_code, start_date).dropna()
+
     # DBの株価を更新する
     def update_stockdb(self, company_code):
         logging.info("CompanyCode: %s", cc)
 
+        # DBの作成、初期データの挿入
         if args.initdb:
             stock_data = self.initdb_kabuoji3(company_code)
             self.insert_data(company_code, stock_data, args.stockdb)
 
-        # DBにアクセスしてDB内の最新の日付をゲット
-        start_date = self.get_start_date(company_code)
-
-        t = datetime.now().date()  # today
-        if start_date <= t:
-            # yahoo financeにアクセスして、株価を入手
-            stock_data = self.yfinace(company_code, start_date).dropna()
-
-            # DBの更新
-            self.insert_data(company_code, stock_data, args.stockdb)
+        # 最新株価の入手とDBの更新
+        stock_data = self.get_latest_stock_data(company_code)
+        self.insert_data(company_code, stock_data, args.stockdb)
 
     def yfinace(self, companycode, start):
         logging.info("  gathering data since: %s", start)
@@ -186,6 +269,7 @@ if __name__ == "__main__":
     parser.add_argument('--initdb', action='store_true')
     parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
     parser.add_argument('--stockdb', default='stockdb')
+    parser.add_argument('--update_by_nikkei', action='store_true')
     args = parser.parse_args()
 
     formatter = '%(levelname)s : %(asctime)s : %(message)s'
@@ -193,7 +277,13 @@ if __name__ == "__main__":
 
     stockdb = Stockdb(0, 1)
 
+    skip = True
     for cc in stockdb.company_codes():
+        if cc == '1380.JP':
+            skip = False
+        if skip:
+            continue
+
         stockdb.update_stockdb(cc)
-        time.sleep(1)
+        time.sleep(3)
     # stockdb.remove_old_data("stockdb_sub", 7)
