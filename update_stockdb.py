@@ -123,6 +123,8 @@ class Stockdb():
         self.mycursor.execute(sql)
         self.mydb.commit()
 
+    # https://kabuoji3.com の過去データからDBの初期化
+    # すぐにアクセス拒否された。翌日には復活したが。
     def initdb_kabuoji3(self, company_code):
         t1 = datetime.now().date()  # today
         headers = {
@@ -246,6 +248,8 @@ class Stockdb():
         stock_data = self.get_latest_stock_data(company_code)
         self.insert_data(company_code, stock_data, args.stockdb)
 
+    # yahoo financeから株価入手
+    # 数年前の株価が怪しい、、、最新は大丈夫そうかな。
     def yfinace(self, companycode, start):
         logging.info("  gathering data since: %s", start)
         companycode = companycode.replace('.JP', '.T')
