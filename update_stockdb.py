@@ -113,18 +113,6 @@ class Stockdb():
 
         self.mydb.commit()
 
-        '''
-        today = datetime.utcnow()
-        sql = 'UPDATE getdatatimedb SET cc="%s", valid=1, datagettime="%s" ' \
-              'WHERE cc="%s" ' % (company_code, today, company_code)
-
-        #sql = 'INSERT INTO getdatatimedb (cc, valid, datagettime) ' \
-        #      'VALUES ("%s", %d, "%s") ' \
-        #      'ON DUPLICATE KEY UPDATE cc=VALUES(cc);' % (company_code, 1, today)
-        self.mycursor.execute(sql)
-        self.mydb.commit()
-        '''
-
     def remove_old_data(self, tablename, num_date):
         dt = datetime.now().date() - timedelta(days=num_date)
         sql = 'DELETE FROM %s WHERE date<"%s"' % (tablename, dt)
@@ -286,4 +274,3 @@ if __name__ == "__main__":
 
         stockdb.update_stockdb(cc)
         time.sleep(3)
-    # stockdb.remove_old_data("stockdb_sub", 7)
