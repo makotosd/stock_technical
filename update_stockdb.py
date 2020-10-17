@@ -94,27 +94,53 @@ class Stockdb():
             lastday = self.mycursor.fetchone()[0]
             return lastday + timedelta(days=1)
 
+    # dbからデータ取得。なければNoneを返す
+    def get_data_in_db(self, tablename, cc, date):
+        sql = 'SELECT * FROM %s WHERE cc="%s" AND date="%s" LIMIT 1;' % (tablename, cc, date)
+        self.mycursor.execute(sql)
+        if self.mycursor.rowcount == 0:
+            return None
+        else:
+            items = self.mycursor.fetchone()
+            se = pd.Series(items[2:7], index = ["Open", "Close", "High", "Low", "Volume"], name=items[0])
 
+            return se
+
+    # 二つのデータの比較
+    def compare_data(self, a, b, cc, date):
+        logging.info(a.sort_index())
+        logging.info(b.sort_index())
+        if (a.sort_index() == b.sort_index()).all():
+            return True
+        else:
+            logging.fatal("data is different from db. cc: %s, date: %s" % (cc, date))
+
+
+    # dbにデータ挿入
     def insert_data(self, company_code, data, tablename):
         if len(data) == 0:
             logging.info("  No data for %s" % (company_code))
             return
 
         for date in data.index:
-            row = data.loc[date]
-            sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d)' % \
-                  (tablename,
-                   'date', 'cc', 'open', 'close', 'high', 'low', 'volume',
-                   date, company_code,
-                   row['Open'], row['Close'], row['High'], row['Low'], int(row['Volume'])
-                   )
-            try:
-                self.mycursor.execute(sql)
-            except mysql.connector.IntegrityError as e:
-                logging.error("history already exist: %s" % e)
-            except mysql.connector.DataError as e:
-                logging.error("dataerror exist: %s\n" % e)
-                logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
+            data_in_db = self.get_data_in_db(tablename, company_code, date)
+            if data_in_db is not None:
+                self.compare_data(data_in_db, data.loc[date], company_code, date)
+            else:
+                row = data.loc[date]
+                sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d)' % \
+                    (tablename,
+                    'date', 'cc', 'open', 'close', 'high', 'low', 'volume',
+                    date, company_code,
+                    row['Open'], row['Close'], row['High'], row['Low'], int(row['Volume'])
+                    )
+                try:
+                    self.mycursor.execute(sql)
+                except mysql.connector.IntegrityError as e:
+                    logging.error("history already exist: %s" % e)
+                except mysql.connector.DataError as e:
+                    logging.error("dataerror exist: %s\n" % e)
+                    logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
 
         self.mydb.commit()
 
@@ -276,7 +302,7 @@ if __name__ == "__main__":
 
     skip = True
     for cc in stockdb.company_codes():
-        if cc == '9996.JP':
+        if cc == '9997.JP':
             skip = False
         if skip:
             continue
