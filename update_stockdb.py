@@ -58,7 +58,8 @@ class Stockdb():
             self.CompanyCode.append(str(index) + ".JP")
 
     def __del__(self):
-        self.mydb.close()
+        # self.mydb.close()
+        pass
 
     def initdb(self, url_str):
         # stockdbの削除
@@ -275,7 +276,7 @@ if __name__ == "__main__":
 
     skip = True
     for cc in stockdb.company_codes():
-        if cc == '2296.JP':
+        if cc == '9996.JP':
             skip = False
         if skip:
             continue
