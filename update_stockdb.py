@@ -15,6 +15,7 @@ from sqlalchemy import create_engine
 import argparse
 from bs4 import BeautifulSoup
 import re
+import os
 
 def is_float(s):
     try:
@@ -38,7 +39,7 @@ class Stockdb():
         )
         self.mycursor = self.mydb.cursor(buffered=True)
 
-        if args.initdb:
+        if args.dropdb:
             self.initdb(args.url_db)
 
         # data_jの更新
@@ -108,12 +109,12 @@ class Stockdb():
 
     # 二つのデータの比較
     def compare_data(self, a, b, cc, date):
-        logging.info(a.sort_index())
-        logging.info(b.sort_index())
+        # logging.info(a.sort_index())
+        # logging.info(b.sort_index())
         if (a.sort_index() == b.sort_index()).all():
             return True
         else:
-            logging.fatal("data is different from db. cc: %s, date: %s" % (cc, date))
+            return False
 
 
     # dbにデータ挿入
@@ -125,7 +126,11 @@ class Stockdb():
         for date in data.index:
             data_in_db = self.get_data_in_db(tablename, company_code, date)
             if data_in_db is not None:
-                self.compare_data(data_in_db, data.loc[date], company_code, date)
+                if self.compare_data(data_in_db, data.loc[date], company_code, date):
+                    continue
+                else:
+                    logging.fatal("data is different from db. cc: %s, date: %s" % (cc, date))
+
             else:
                 row = data.loc[date]
                 sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d)' % \
@@ -188,6 +193,22 @@ class Stockdb():
 
         return df
 
+    # yahooからdownloadしたcsvからdataframeにへんかん
+    def csv2df(self, company_code):
+        df = pd.DataFrame()
+
+        saveFilePath = os.path.join("./history/", "%s.T.csv" % (company_code.replace('.JP', '')))
+        df = pd.read_csv(saveFilePath, index_col=0, encoding="shift-jis", header=0, names=('date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj'))
+
+        df['Volume'] = df['Volume'] * df['Close'] / df['Adj'] # Volumeだけ逆数
+        df['Open']   = df['Open']   * df['Adj'] / df['Close']
+        df['High']   = df['High']   * df['Adj'] / df['Close']
+        df['Low']    = df['Low']    * df['Adj'] / df['Close']
+        df['Close']  = df['Close']  * df['Adj'] / df['Close'] # Closeは最後にやりましょう
+        df = df.drop('Adj', axis=1)
+
+        return df
+
     # nikkeiのサイトから最新株価を取得
     def latest_stock_data_from_nikkei(self, company_code):
 
@@ -228,11 +249,11 @@ class Stockdb():
                 if flag_novalue:
                     continue
 
+                items[4] = items[4] * (items[3]/items[5])     #修正後終値で補正(volumeは逆数)
                 items[0] = items[0] * (items[5]/items[3])     #修正後終値で補正
                 items[1] = items[1] * (items[5]/items[3])     #修正後終値で補正
                 items[2] = items[2] * (items[5]/items[3])     #修正後終値で補正
                 items[3] = items[3] * (items[5]/items[3])     #修正後終値で補正
-                items[4] = items[4] * (items[3]/items[5])     #修正後終値で補正(volumeは逆数)
 
                 today = datetime.now()
                 mm = int(mm.groups()[0])
@@ -247,6 +268,34 @@ class Stockdb():
                 df = df.append(se)
         return df
 
+
+    # info
+    def info_db(self, cc):
+        sql = 'SELECT date FROM %s WHERE cc="%s" ORDER BY date DESC LIMIT 1;' % (args.stockdb, cc)
+        self.mycursor.execute(sql)
+        latest = self.mycursor.fetchone()
+        if latest == None:
+            latest = ""
+        else:
+            latest = latest[0]
+
+        sql = 'SELECT date FROM %s WHERE cc="%s" ORDER BY date ASC LIMIT 1;' % (args.stockdb, cc)
+        self.mycursor.execute(sql)
+        oldest = self.mycursor.fetchone()
+        if oldest == None:
+            oldest = ""
+        else:
+            oldest = oldest[0]
+
+        sql = 'SELECT count(*) FROM %s WHERE cc="%s"' % (args.stockdb, cc)
+        self.mycursor.execute(sql)
+        num = self.mycursor.fetchone()
+        if num == None:
+            num = 0
+        else:
+            num = int(num[0])
+
+        logging.info("  cc: %s, %s - %s, %d data", cc, oldest, latest, num)
 
     # 最新株価を返す
     def get_latest_stock_data(self, company_code):
@@ -265,15 +314,20 @@ class Stockdb():
     # DBの株価を更新する
     def update_stockdb(self, company_code):
         logging.info("CompanyCode: %s", cc)
+        self.info_db(company_code)
 
         # DBの作成、初期データの挿入
-        if args.initdb:
-            stock_data = self.initdb_kabuoji3(company_code)
+        if args.historydb:
+            # stock_data = self.initdb_kabuoji3(company_code)
+            stock_data = self.csv2df(company_code)
             self.insert_data(company_code, stock_data, args.stockdb)
 
         # 最新株価の入手とDBの更新
         stock_data = self.get_latest_stock_data(company_code)
         self.insert_data(company_code, stock_data, args.stockdb)
+
+        # 情報出力
+        self.info_db(company_code)
 
     # yahoo financeから株価入手
     # 数年前の株価が怪しい、、、最新は大丈夫そうかな。
@@ -289,7 +343,8 @@ class Stockdb():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='stockdbの作成、更新')
-    parser.add_argument('--initdb', action='store_true')
+    parser.add_argument('--dropdb', action='store_true')
+    parser.add_argument('--historydb', action='store_true')
     parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
     parser.add_argument('--stockdb', default='stockdb')
     parser.add_argument('--update_by_nikkei', action='store_true')
@@ -300,7 +355,7 @@ if __name__ == "__main__":
 
     stockdb = Stockdb(0, 1)
 
-    skip = True
+    skip = False
     for cc in stockdb.company_codes():
         if cc == '9997.JP':
             skip = False
