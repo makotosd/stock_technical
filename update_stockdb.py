@@ -207,11 +207,11 @@ class Stockdb():
             logging.info(e)
             return df
 
-        df['Volume'] = df['Volume'] * df['Close'] / df['Adj'] # Volumeだけ逆数
-        df['Open']   = df['Open']   * df['Adj'] / df['Close']
-        df['High']   = df['High']   * df['Adj'] / df['Close']
-        df['Low']    = df['Low']    * df['Adj'] / df['Close']
-        df['Close']  = df['Close']  * df['Adj'] / df['Close'] # Closeは最後にやりましょう
+        df['Volume'] = df['Volume'] * round(df['Close'] / df['Adj'], 4) # Volumeだけ逆数
+        df['Open']   = df['Open']   * round(df['Adj'] / df['Close'], 4)
+        df['High']   = df['High']   * round(df['Adj'] / df['Close'], 4)
+        df['Low']    = df['Low']    * round(df['Adj'] / df['Close'], 4)
+        df['Close']  = df['Close']  * round(df['Adj'] / df['Close'], 4) # Closeは最後にやりましょう
         df = df.drop('Adj', axis=1)
 
         return df
@@ -362,7 +362,7 @@ if __name__ == "__main__":
 
     stockdb = Stockdb(0, 1)
 
-    skip = True
+    skip = False
     for cc in stockdb.company_codes():
         if cc == '1605.JP':
             skip = False
