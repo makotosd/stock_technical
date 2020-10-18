@@ -16,6 +16,7 @@ import argparse
 from bs4 import BeautifulSoup
 import re
 import os
+import sys
 
 def is_float(s):
     try:
@@ -130,6 +131,7 @@ class Stockdb():
                     continue
                 else:
                     logging.fatal("data is different from db. cc: %s, date: %s" % (cc, date))
+                    sys.exit(1)
 
             else:
                 row = data.loc[date]
@@ -198,7 +200,12 @@ class Stockdb():
         df = pd.DataFrame()
 
         saveFilePath = os.path.join("./history/", "%s.T.csv" % (company_code.replace('.JP', '')))
-        df = pd.read_csv(saveFilePath, index_col=0, encoding="shift-jis", header=0, names=('date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj'))
+        try:
+            df = pd.read_csv(saveFilePath, index_col=0, encoding="shift-jis", header=0, names=('date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj'))
+        except UnicodeDecodeError as e:
+            logging.info("  no valid data in csv. see following error.")
+            logging.info(e)
+            return df
 
         df['Volume'] = df['Volume'] * df['Close'] / df['Adj'] # Volumeだけ逆数
         df['Open']   = df['Open']   * df['Adj'] / df['Close']
@@ -355,9 +362,9 @@ if __name__ == "__main__":
 
     stockdb = Stockdb(0, 1)
 
-    skip = False
+    skip = True
     for cc in stockdb.company_codes():
-        if cc == '9997.JP':
+        if cc == '1605.JP':
             skip = False
         if skip:
             continue
