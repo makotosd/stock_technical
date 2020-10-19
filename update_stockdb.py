@@ -110,13 +110,11 @@ class Stockdb():
 
     # 二つのデータの比較
     def compare_data(self, a, b, cc, date):
-        # logging.info(a.sort_index())
-        # logging.info(b.sort_index())
-        if (a.sort_index() == b.sort_index()).all():
-            return True
-        else:
-            return False
-
+        gosa = 0.001
+        for i in a.index.values:
+            if a[i]/b[i] > (1+gosa) or a[i]/b[i] < (1-gosa):
+               return False
+        return True
 
     # dbにデータ挿入
     def insert_data(self, company_code, data, tablename):
@@ -207,11 +205,11 @@ class Stockdb():
             logging.info(e)
             return df
 
-        df['Volume'] = df['Volume'] * round(df['Close'] / df['Adj'], 4) # Volumeだけ逆数
-        df['Open']   = df['Open']   * round(df['Adj'] / df['Close'], 4)
-        df['High']   = df['High']   * round(df['Adj'] / df['Close'], 4)
-        df['Low']    = df['Low']    * round(df['Adj'] / df['Close'], 4)
-        df['Close']  = df['Close']  * round(df['Adj'] / df['Close'], 4) # Closeは最後にやりましょう
+        df['Volume'] = df['Volume'] * (df['Close'] / df['Adj']) # Volumeだけ逆数
+        df['Open']   = df['Open']   * (df['Adj'] / df['Close'])
+        df['High']   = df['High']   * (df['Adj'] / df['Close'])
+        df['Low']    = df['Low']    * (df['Adj'] / df['Close'])
+        df['Close']  = df['Close']  * (df['Adj'] / df['Close']) # Closeは最後にやりましょう
         df = df.drop('Adj', axis=1)
 
         return df
@@ -364,7 +362,7 @@ if __name__ == "__main__":
 
     skip = False
     for cc in stockdb.company_codes():
-        if cc == '1605.JP':
+        if cc == '3409.JP':
             skip = False
         if skip:
             continue
