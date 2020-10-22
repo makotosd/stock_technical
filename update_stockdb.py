@@ -13,7 +13,6 @@ import logging
 import urllib.request
 from sqlalchemy import create_engine
 import argparse
-from bs4 import BeautifulSoup
 import re
 import os
 import sys
