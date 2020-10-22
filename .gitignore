@@ -1,7 +1,9 @@
 update_stockdb.log
 .vscode/
+history/
 update_stockdb.code-workspace
 data_j.xls
 data_j.ods
 output.log
 stockdb.zip
+ghostdriver.log
