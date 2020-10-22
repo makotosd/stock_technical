@@ -3,6 +3,9 @@
 #
 # scp stockdb.zip
 # unzip stockdb.zip
-# $ mysql -uroot -p 
+# replace utf8mb4_0900_ai_ci to utf8mb4_general_ci in dumpfile.
+# $ mysql -u root -p 
 # > USE stockdb;
 # > SOURCE C:\\Users\\mm\\Desktop\\stockdb\\stockdb.dump ;
+#       or
+# $ mysql -h 192.168.1.11 -u stockdb -D stockdb -p < stockd.dump
