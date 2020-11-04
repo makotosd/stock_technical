@@ -13,9 +13,11 @@ import logging
 import urllib.request
 from sqlalchemy import create_engine
 import argparse
+from bs4 import BeautifulSoup
 import re
 import os
 import sys
+import math
 
 def is_float(s):
     try:
@@ -72,7 +74,7 @@ class Stockdb():
         sql = 'CREATE TABLE IF NOT EXISTS %s (' % (args.stockdb)
         sql += 'date DATE NOT NULL, '
         sql += 'cc VARCHAR(16) NOT NULL, '
-        sql += 'open FLOAT, close FLOAT, high FLOAT, low FLOAT, volume BIGINT,'
+        sql += 'open FLOAT, close FLOAT, high FLOAT, low FLOAT, volume BIGINT, adj FLOAT,'
         sql += 'PRIMARY KEY(date, cc)'
         sql += ') PARTITION BY KEY(cc) PARTITIONS 4096;'
         self.mycursor.execute(sql)
@@ -103,7 +105,7 @@ class Stockdb():
             return None
         else:
             items = self.mycursor.fetchone()
-            se = pd.Series(items[2:7], index = ["Open", "Close", "High", "Low", "Volume"], name=items[0])
+            se = pd.Series(items[2:8], index = ["Open", "Close", "High", "Low", "Volume", "Adj"], name=items[0])
 
             return se
 
@@ -128,15 +130,16 @@ class Stockdb():
                     continue
                 else:
                     logging.fatal("data is different from db. cc: %s, date: %s" % (cc, date))
-                    sys.exit(1)
+                    logging.fatal("  db: \n" + data_in_db.to_string())
+                    logging.fatal(" web: \n" + data.loc[date].to_string())
 
             else:
                 row = data.loc[date]
-                sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d)' % \
+                sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d, %f)' % \
                     (tablename,
-                    'date', 'cc', 'open', 'close', 'high', 'low', 'volume',
+                    'date', 'cc', 'open', 'close', 'high', 'low', 'volume', 'adj',
                     date, company_code,
-                    row['Open'], row['Close'], row['High'], row['Low'], int(row['Volume'])
+                    row['Open'], row['Close'], row['High'], row['Low'], int(row['Volume']), row['Adj']
                     )
                 try:
                     self.mycursor.execute(sql)
@@ -147,6 +150,27 @@ class Stockdb():
                     logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
 
         self.mydb.commit()
+
+    # dbにデータ挿入
+    def update_adj(self, company_code, data, tablename):
+
+        sql = "SELECT date, adj FROM %s WHERE cc='%s' ORDER BY date DESC LIMIT 1"  % (tablename, company_code)
+        self.mycursor.execute(sql)
+        ret = self.mycursor.fetchone()
+        if ret is None:
+            return
+
+        (adj_db_date, adj_db_value) = (ret[0], ret[1])
+        adj_new = data.loc[adj_db_date.strftime('%Y-%m-%d')]['Adj']
+
+        if adj_db_value != adj_new :
+            rate = adj_new / adj_db_value
+            logging.info("  update adj by %f in %s" % (rate, company_code))
+            sql = "UPDATE %s SET adj=adj*%f WHERE cc='%s'" % (tablename, rate, company_code)
+            self.mycursor.execute(sql)
+            self.mydb.commit()
+        else:
+            return
 
     def remove_old_data(self, tablename, num_date):
         dt = datetime.now().date() - timedelta(days=num_date)
@@ -186,7 +210,7 @@ class Stockdb():
                         else:      # 数字
                             items.append(int(cell.get_text()))
 
-                    se = pd.Series(items[1:6], index = ["Open", "High", "Low", "Close", "Volume"], name=items[0])
+                    se = pd.Series(items[1:7], index = ["Open", "High", "Low", "Close", "Volume", "Adj"], name=items[0])
                     df = df.append(se)
             time.sleep(2)
 
@@ -204,13 +228,6 @@ class Stockdb():
             logging.info(e)
             return df
 
-        df['Volume'] = df['Volume'] * (df['Close'] / df['Adj']) # Volumeだけ逆数
-        df['Open']   = df['Open']   * (df['Adj'] / df['Close'])
-        df['High']   = df['High']   * (df['Adj'] / df['Close'])
-        df['Low']    = df['Low']    * (df['Adj'] / df['Close'])
-        df['Close']  = df['Close']  * (df['Adj'] / df['Close']) # Closeは最後にやりましょう
-        df = df.drop('Adj', axis=1)
-
         return df
 
     # nikkeiのサイトから最新株価を取得
@@ -219,17 +236,19 @@ class Stockdb():
         headers = {
            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36',
         }
-        url = 'https://www.nikkei.com/nkd/company/history/dprice/?scode=%s&ba=1' % (company_code.replace('.JP', ''))
+        url = 'https://www.nikkei.com/nkd/company/history/dprice/?scode=%s' % (company_code.replace('.JP', ''))
         html = requests.get(url, headers=headers)
         soup = BeautifulSoup(html.text,'html.parser')
         table = soup.find(class_="m-tableType01_table")
-        if table is None:
-            logging.info("no table for %s" % (company_code))
-
         df = pd.DataFrame()
+        if table is None:
+            logging.info("  no table for %s" % (company_code))
+            return df
+
         rows = table.findAll('tr')
         if rows is None:
-            logging.info("no tr for %s" % (company_code))
+            logging.info("  no tr for %s" % (company_code))
+            return df
 
         for row in rows:
             t = row.find('th').get_text()
@@ -253,12 +272,6 @@ class Stockdb():
                 if flag_novalue:
                     continue
 
-                items[4] = items[4] * (items[3]/items[5])     #修正後終値で補正(volumeは逆数)
-                items[0] = items[0] * (items[5]/items[3])     #修正後終値で補正
-                items[1] = items[1] * (items[5]/items[3])     #修正後終値で補正
-                items[2] = items[2] * (items[5]/items[3])     #修正後終値で補正
-                items[3] = items[3] * (items[5]/items[3])     #修正後終値で補正
-
                 today = datetime.now()
                 mm = int(mm.groups()[0])
                 dd = int(dd.groups()[0])
@@ -268,7 +281,7 @@ class Stockdb():
                     yy = today.year
                 vday = datetime(yy, mm, dd)
 
-                se = pd.Series(items[0:5], index = ["Open", "High", "Low", "Close", "Volume"], name=vday.strftime('%Y-%m-%d'))
+                se = pd.Series(items[0:6], index = ["Open", "High", "Low", "Close", "Volume", "Adj"], name=vday.strftime('%Y-%m-%d'))
                 df = df.append(se)
         return df
 
@@ -328,6 +341,7 @@ class Stockdb():
 
         # 最新株価の入手とDBの更新
         stock_data = self.get_latest_stock_data(company_code)
+        self.update_adj(company_code, stock_data, args.stockdb)
         self.insert_data(company_code, stock_data, args.stockdb)
 
         # 情報出力
@@ -359,12 +373,13 @@ if __name__ == "__main__":
 
     stockdb = Stockdb(0, 1)
 
-    skip = False
+    skip = True
     for cc in stockdb.company_codes():
-        if cc == '3409.JP':
+        # if cc == '1773.JP':
+        if cc == '9276.JP':
             skip = False
         if skip:
             continue
 
         stockdb.update_stockdb(cc)
-        time.sleep(3)
+        time.sleep(1)
