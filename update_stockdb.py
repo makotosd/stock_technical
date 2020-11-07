@@ -111,7 +111,7 @@ class Stockdb():
 
     # 二つのデータの比較
     def compare_data(self, a, b, cc, date):
-        gosa = 0.001
+        gosa = 0.005
         for i in a.index.values:
             if a[i]/b[i] > (1+gosa) or a[i]/b[i] < (1-gosa):
                return False
@@ -161,7 +161,13 @@ class Stockdb():
             return
 
         (adj_db_date, adj_db_value) = (ret[0], ret[1])
-        adj_new = data.loc[adj_db_date.strftime('%Y-%m-%d')]['Adj']
+
+        date_str = adj_db_date.strftime('%Y-%m-%d')
+        if date_str in data.index :
+            adj_new = data.loc[date_str]['Adj']
+        else:
+            logging.fatal("  Impossible to adjust histric data.")
+            return
 
         if adj_db_value != adj_new :
             rate = adj_new / adj_db_value
@@ -375,8 +381,7 @@ if __name__ == "__main__":
 
     skip = True
     for cc in stockdb.company_codes():
-        # if cc == '1773.JP':
-        if cc == '9276.JP':
+        if cc == '2525.JP':
             skip = False
         if skip:
             continue
