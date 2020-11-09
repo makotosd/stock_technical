@@ -383,7 +383,7 @@ if __name__ == "__main__":
 
     stockdb = Stockdb(0, 1)
 
-    skip = True
+    skip = False
     for cc in stockdb.company_codes():
         if cc == '2525.JP':
             skip = False
@@ -391,4 +391,4 @@ if __name__ == "__main__":
             continue
 
         stockdb.update_stockdb(cc)
-        time.sleep(1)
+        time.sleep(3)
