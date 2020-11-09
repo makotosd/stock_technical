@@ -5,6 +5,13 @@ import argparse
 import logging
 from urllib.parse import urlparse
 import mysql.connector
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+import re
+import time
+from datetime import datetime
+import logging
 
 class dbconnector():
 
@@ -45,19 +52,111 @@ class dbconnector():
 
 class company():
     def __init__(self, cc):
-        self.companycode = cc
+        self.companycode = str(cc) + ".JP"
+        (self.date, self.valuation) = self.get_valuation(self.companycode)
 
     def __del__(self):
         pass
 
+    def get_valuation(self, cc):
+        headers = {
+           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36',
+        }
+        url = 'https://www.nikkei.com/nkd/company/?scode=%s' % (cc.replace('.JP', ''))
+        html = requests.get(url, headers=headers)
+        soup = BeautifulSoup(html.text,'html.parser')
+
+        ###########################################################################
+        dt = datetime.strptime(soup.find(class_='m-stockInfo_date').get_text(), '%Y/%m/%d')
+
+        ###########################################################################
+        detail_right = soup.find(class_="m-stockInfo_detail_right")
+        if detail_right is None:
+            return (None, pd.Series())
+
+        detail_right_value = detail_right.find(class_="m-stockInfo_detail_list")
+        if detail_right_value is None:
+            return (None, pd.Series())
+
+        detail_right_value_li = detail_right_value.findAll('li')
+        if detail_right_value_li is None:
+            return (None, pd.Series())
+
+        # 売買高, 予想PER, 予想配当利回り(DY)
+        per = re.sub('([\-0-9.]+) .+', r'\1', detail_right_value_li[1].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
+        if per == "--" :
+            per = None
+        else:
+            per = float(per)
+
+        dy = re.sub('([\-0-9.]+) .+', r'\1', detail_right_value_li[1].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
+        if dy == "--" :
+            dy = None
+        else:
+            dy = float(dy)
+
+        ############################################################################
+        detail_left = soup.find(class_="m-stockInfo_detail m-stockInfo_detail_left")
+        if detail_left is None:
+            return (None, pd.Series())
+
+        detail_left_value = detail_left.find(class_="m-stockInfo_detail_list")
+        if detail_left_value is None:
+            return (None, pd.Series())
+
+        detail_left_value_li = detail_left_value.findAll('li')
+        if detail_left_value_li is None:
+            return (None, pd.Series())
+
+        # PBR, ROE, 株式益回り（予想）, 普通株式数(NOS), 時価総額(MC)
+        pbr = re.sub('([\-0-9.]+) .+', r'\1', detail_left_value_li[0].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
+        if pbr == "--":
+            pbr = None
+        else:
+            pbr = float(pbr)
+
+        roe = re.sub('([\-0-9.]+) .+', r'\1', detail_left_value_li[1].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
+        if roe == "N/A":
+            roe = None
+        else:
+            roe = float(roe)
+
+        nos = re.sub('([\-0-9.]+) .+', r'\1', detail_left_value_li[3].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
+        nos = int(nos)
+
+        mc = re.sub('([\-0-9.]+) .+', r'\1', detail_left_value_li[4].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
+        mc = int(mc)
+
+        return (dt, pd.Series([per, dy, pbr, roe, nos, mc], index = ["PER", "DY", "PBR", "ROE", "NOS", "MC"], name=cc))
+
+    def insertdb(self, conn):
+        logging.info(self.valuation)
+        sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d, %d)' % \
+            (args.tablename,
+            'date', 'cc', 'PER', 'DY', 'PBR', 'ROE', 'NOS', 'MC',
+            self.date, self.companycode,
+            self.valuation['PER'], self.valuation['DY'], self.valuation['PBR'],
+            self.valuation['ROE'], self.valuation['NOS'], self.valuation['MC'],  
+            )
+        try:
+            conn.mycursor.execute(sql)
+        except mysql.connector.IntegrityError as e:
+            logging.error("history already exist: %s" % e)
+        except mysql.connector.DataError as e:
+            logging.error("dataerror exist: %s\n" % e)
+            logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
+        conn.mydb.commit()
+
 class companies():
     def __init__(self, conn):
-        sql = "SELECT cc FROM %s"
+        sql = "SELECT cc FROM %s" % ('data_j')
         conn.mycursor.execute(sql)
         self.list = []
         for cc in conn.mycursor.fetchall():
-            co = company(cc)
+            co = company(cc[0])
+            co.insertdb(conn)
             self.list.append(co)
+            time.sleep(args.sleep)
 
     def __del__(self):
         pass
@@ -66,7 +165,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='stockdbの作成、更新')
     parser.add_argument('--droptable', action='store_true')
     parser.add_argument('--tablename', default='valuation')
+    parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
+    parser.add_argument('--sleep', default=4)
     args = parser.parse_args()
 
-    dbconnctor = dbconnector()
-    companies = companies(dbconnector)
+    formatter = '%(levelname)s : %(asctime)s : %(message)s'
+    logging.basicConfig(filename='./update_valuation.log', level=logging.INFO, format=formatter)
+
+    dbconn = dbconnector()
+    companies = companies(dbconn)

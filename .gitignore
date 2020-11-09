@@ -7,3 +7,5 @@ data_j.ods
 output.log
 stockdb.zip
 ghostdriver.log
+stockdb.dump
+update_valuation.log
