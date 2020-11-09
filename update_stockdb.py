@@ -233,6 +233,10 @@ class Stockdb():
             logging.info("  no valid data in csv. see following error.")
             logging.info(e)
             return df
+        except FileNotFoundError as e:
+            logging.info("  csv file is NOT found. see following error.")
+            logging.info(e)
+            return df
 
         return df
 
