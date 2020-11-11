@@ -376,6 +376,8 @@ if __name__ == "__main__":
     parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
     parser.add_argument('--stockdb', default='stockdb')
     parser.add_argument('--update_by_nikkei', action='store_true')
+    parser.add_argument('--skipuntil', default='')
+    parser.add_argument('--sleep', default=1)
     args = parser.parse_args()
 
     formatter = '%(levelname)s : %(asctime)s : %(message)s'
@@ -384,11 +386,14 @@ if __name__ == "__main__":
     stockdb = Stockdb(0, 1)
 
     skip = False
+    if args.skipuntil != '':
+        skip = True
+
     for cc in stockdb.company_codes():
-        if cc == '2525.JP':
+        if skip == True and cc == args.skipuntil:
             skip = False
         if skip:
             continue
 
         stockdb.update_stockdb(cc)
-        time.sleep(3)
+        time.sleep(args.sleep)
