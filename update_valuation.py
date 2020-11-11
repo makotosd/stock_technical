@@ -12,6 +12,7 @@ import re
 import time
 from datetime import datetime
 import logging
+from sqlalchemy import create_engine
 
 class dbconnector():
 
@@ -53,7 +54,7 @@ class dbconnector():
 class company():
     def __init__(self, cc):
         self.companycode = str(cc) + ".JP"
-        (self.date, self.valuation) = self.get_valuation(self.companycode)
+        self.valuation = self.get_valuation(self.companycode)
 
     def __del__(self):
         pass
@@ -127,24 +128,40 @@ class company():
         mc = re.sub('([\-0-9.]+) .+', r'\1', detail_left_value_li[4].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
         mc = int(mc)
 
-        return (dt, pd.Series([per, dy, pbr, roe, nos, mc], index = ["PER", "DY", "PBR", "ROE", "NOS", "MC"], name=cc))
+        # return (dt, pd.Series([per, dy, pbr, roe, nos, mc], index = ["PER", "DY", "PBR", "ROE", "NOS", "MC"], name=cc))
+        return {
+            'cc': self.companycode,
+            'date': dt.strftime('%Y-%m-%d'),
+            'PER': per,
+            'DY': dy,
+            'PBR': pbr,
+            'ROE': roe,
+            'NOS': nos,
+            'MC': mc
+        }
 
     def insertdb(self, conn):
         logging.info(self.valuation)
-        sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d, %d)' % \
-            (args.tablename,
-            'date', 'cc', 'PER', 'DY', 'PBR', 'ROE', 'NOS', 'MC',
-            self.date, self.companycode,
-            self.valuation['PER'], self.valuation['DY'], self.valuation['PBR'],
-            self.valuation['ROE'], self.valuation['NOS'], self.valuation['MC'],  
-            )
+        # sql = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s) VALUES ("%s", "%s", %f, %f, %f, %f, %d, %d)'
+        sql1 = 'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s, %s) VALUES ' % (args.tablename, 'date', 'cc', 'PER', 'DY', 'PBR', 'ROE', 'NOS', 'MC')
+        sql2 = '(%s, %s, %s, %s, %s, %s, %s, %s)'
+        sql = sql1 + sql2
+        # v = self.valuation.where(pd.notnull(self.valuation), None)
+        # v = v.astype({'PER': float, 'DY': float, 'PBR': float, 'ROE': float, 'NOS': int, 'MC': int})
+        # self.valuation = v
         try:
-            conn.mycursor.execute(sql)
+            conn.mycursor.execute(sql, 
+                (self.valuation['date'], self.valuation['cc'],
+                self.valuation['PER'], self.valuation['DY'], self.valuation['PBR'],
+                self.valuation['ROE'], self.valuation['NOS'], self.valuation['MC']))
         except mysql.connector.IntegrityError as e:
             logging.error("history already exist: %s" % e)
         except mysql.connector.DataError as e:
             logging.error("dataerror exist: %s\n" % e)
-            logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
+        '''
+        engine = create_engine(args.url_db)
+        self.valuation.to_sql(args.tablename, con=engine.connect(), index=True, if_exists="replace")
+        '''
         conn.mydb.commit()
 
 class companies():
