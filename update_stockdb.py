@@ -378,12 +378,14 @@ if __name__ == "__main__":
     parser.add_argument('--update_by_nikkei', action='store_true')
     parser.add_argument('--skipuntil', default='')
     parser.add_argument('--sleep', default=1)
+    parser.add_argument('--n', default=1, type=int)
+    parser.add_argument('--m', default=0, type=int)
     args = parser.parse_args()
 
     formatter = '%(levelname)s : %(asctime)s : %(message)s'
     logging.basicConfig(filename='./update_stockdb.log', level=logging.INFO, format=formatter)
 
-    stockdb = Stockdb(0, 1)
+    stockdb = Stockdb(args.m, args.n)
 
     skip = False
     if args.skipuntil != '':
