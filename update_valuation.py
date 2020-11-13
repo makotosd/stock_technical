@@ -68,20 +68,23 @@ class company():
         soup = BeautifulSoup(html.text,'html.parser')
 
         ###########################################################################
-        dt = datetime.strptime(soup.find(class_='m-stockInfo_date').get_text(), '%Y/%m/%d')
+        dt = soup.find(class_='m-stockInfo_date')
+        if dt is None:
+            return {}
+        dt = datetime.strptime(dt.get_text(), '%Y/%m/%d')
 
         ###########################################################################
         detail_right = soup.find(class_="m-stockInfo_detail_right")
         if detail_right is None:
-            return (None, pd.Series())
+            return {}
 
         detail_right_value = detail_right.find(class_="m-stockInfo_detail_list")
         if detail_right_value is None:
-            return (None, pd.Series())
+            return {}
 
         detail_right_value_li = detail_right_value.findAll('li')
         if detail_right_value_li is None:
-            return (None, pd.Series())
+            return {}
 
         # 売買高, 予想PER, 予想配当利回り(DY)
         per = re.sub('([\-0-9.]+) .+', r'\1', detail_right_value_li[1].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
@@ -99,15 +102,15 @@ class company():
         ############################################################################
         detail_left = soup.find(class_="m-stockInfo_detail m-stockInfo_detail_left")
         if detail_left is None:
-            return (None, pd.Series())
+            return {}
 
         detail_left_value = detail_left.find(class_="m-stockInfo_detail_list")
         if detail_left_value is None:
-            return (None, pd.Series())
+            return {}
 
         detail_left_value_li = detail_left_value.findAll('li')
         if detail_left_value_li is None:
-            return (None, pd.Series())
+            return {}
 
         # PBR, ROE, 株式益回り（予想）, 普通株式数(NOS), 時価総額(MC)
         pbr = re.sub('([\-0-9.]+) .+', r'\1', detail_left_value_li[0].find(class_="m-stockInfo_detail_value").get_text().replace(',', ''))
@@ -149,6 +152,9 @@ class company():
         # v = self.valuation.where(pd.notnull(self.valuation), None)
         # v = v.astype({'PER': float, 'DY': float, 'PBR': float, 'ROE': float, 'NOS': int, 'MC': int})
         # self.valuation = v
+        if len(self.valuation) == 0:
+            return
+
         try:
             conn.mycursor.execute(sql, 
                 (self.valuation['date'], self.valuation['cc'],
@@ -169,7 +175,17 @@ class companies():
         sql = "SELECT cc FROM %s" % ('data_j')
         conn.mycursor.execute(sql)
         self.list = []
+
+        skip = False
+        if args.skipuntil != '':
+            skip = True
+
         for cc in conn.mycursor.fetchall():
+            if skip == True and str(cc[0]) == args.skipuntil:
+                skip = False
+            if skip:
+                continue
+        
             co = company(cc[0])
             co.insertdb(conn)
             self.list.append(co)
@@ -184,6 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('--tablename', default='valuation')
     parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
     parser.add_argument('--sleep', default=4)
+    parser.add_argument('--skipuntil', default='')
     args = parser.parse_args()
 
     formatter = '%(levelname)s : %(asctime)s : %(message)s'
