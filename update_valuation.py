@@ -204,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument('--droptable', action='store_true')
     parser.add_argument('--tablename', default='valuation')
     parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
-    parser.add_argument('--sleep', default=4)
+    parser.add_argument('--sleep', default=4, type=int)
     parser.add_argument('--skipuntil', default='')
     args = parser.parse_args()
 
