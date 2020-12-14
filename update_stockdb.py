@@ -379,7 +379,7 @@ if __name__ == "__main__":
     parser.add_argument('--stockdb', default='stockdb')
     parser.add_argument('--update_by_nikkei', action='store_true')
     parser.add_argument('--skipuntil', default='')
-    parser.add_argument('--sleep', default=1, type=int)
+    parser.add_argument('--sleep', default=1, type=float)
     parser.add_argument('--n', default=1, type=int)
     parser.add_argument('--m', default=0, type=int)
     args = parser.parse_args()
