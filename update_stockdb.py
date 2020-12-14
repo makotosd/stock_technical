@@ -52,6 +52,8 @@ class Stockdb():
 
         if m == 0:
             engine = create_engine(args.url_db)
+            c = engine.connect()
+            c.execute("DROP TABLE IF EXISTS data_j;")
             df.to_sql("data_j", con=engine.connect(), index=True, index_label="cc", if_exists="replace")
 
         start = int(len(df.index) / n * m)
