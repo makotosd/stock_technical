@@ -249,7 +249,12 @@ class Stockdb():
            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36',
         }
         url = 'https://www.nikkei.com/nkd/company/history/dprice/?scode=%s' % (company_code.replace('.JP', ''))
-        html = requests.get(url, headers=headers)
+        try:
+            html = requests.get(url, headers=headers)
+            html.raise_for_status()
+        except requests.exceptions.HTTPError as err:
+            logging.error("  request error: %s" % err)
+            raise SystemExit(err)        
         soup = BeautifulSoup(html.text,'html.parser')
         table = soup.find(class_="m-tableType01_table")
         df = pd.DataFrame()
