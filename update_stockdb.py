@@ -146,10 +146,10 @@ class Stockdb():
                 try:
                     self.mycursor.execute(sql)
                 except mysql.connector.IntegrityError as e:
-                    logging.error("history already exist: %s" % e)
+                    logging.error("cc: %s, history already exist: %s" % (company_code, e))
                 except mysql.connector.DataError as e:
-                    logging.error("dataerror exist: %s\n" % e)
-                    logging.error("date: %s, volume: %d\n" % (date, row['Volume']))
+                    logging.error("cc: %s, dataerror exist: %s\n" % (company_code, e))
+                    logging.error("cc: %s, date: %s, volume: %d\n" % (company_code, date, row['Volume']))
 
         self.mydb.commit()
 
@@ -168,7 +168,7 @@ class Stockdb():
         if date_str in data.index :
             adj_new = data.loc[date_str]['Adj']
         else:
-            logging.fatal("  Impossible to adjust histric data.")
+            logging.fatal("  cc: %s, Impossible to adjust histric data." % company_code)
             return
 
         if adj_db_value != adj_new :
