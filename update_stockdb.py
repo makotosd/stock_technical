@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 import mysql.connector
 from datetime import datetime, timedelta
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import io
 import pandas as pd
 import time
@@ -249,8 +251,18 @@ class Stockdb():
            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36',
         }
         url = 'https://www.nikkei.com/nkd/company/history/dprice/?scode=%s' % (company_code.replace('.JP', ''))
+        retry_strategy = Retry(
+            total=10,
+            status_forcelist=[429, 500, 502, 503, 504],
+            method_whitelist=["HEAD", "GET", "OPTIONS"],
+            backoff_factor=1
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        http = requests.Session()
+        http.mount("https://", adapter)
         try:
-            html = requests.get(url, headers=headers)
+            # html = requests.get(url, headers=headers)
+            html = http.get(url, headers=headers)
             html.raise_for_status()
         except requests.exceptions.HTTPError as err:
             logging.error("  request error: %s" % err)
