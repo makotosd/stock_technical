@@ -260,14 +260,26 @@ class Stockdb():
         adapter = HTTPAdapter(max_retries=retry_strategy)
         http = requests.Session()
         http.mount("https://", adapter)
-        try:
-            # html = requests.get(url, headers=headers)
-            html = http.get(url, headers=headers)
-            html.raise_for_status()
-        except requests.exceptions.HTTPError as err:
-            logging.error("  request error: %s" % err)
-            raise SystemExit(err)        
-        soup = BeautifulSoup(html.text,'html.parser')
+
+        for attempt in range(5):
+            try:
+                html = http.get(url, headers=headers)
+                df = self.df_from_nikkei(html.text, company_code)
+            except:
+                logging.error("  exception, retry(%d):" % (attempt))
+                time.sleep(5)
+            else:
+                break
+        else:
+            # we failed all the attempts - deal with the consequences.
+            logging.error("  retry exceed. give up for %s:" % (company_code))
+            return pd.DataFrame()
+
+        return df
+
+    # nikkeiのサイトから最新株価を取得しdfに変換
+    def df_from_nikkei(self, html_text, company_code):
+        soup = BeautifulSoup(html_text,'html.parser')
         table = soup.find(class_="m-tableType01_table")
         df = pd.DataFrame()
         if table is None:
