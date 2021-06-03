@@ -360,7 +360,7 @@ class Stockdb():
         if args.update_by_nikkei:
             return self.latest_stock_data_from_nikkei(company_code)
 
-        else:
+        elif args.yfinance:
             # DBにアクセスしてDB内の最新の日付をゲット
             start_date = self.get_start_date(company_code)
 
@@ -368,6 +368,9 @@ class Stockdb():
             if start_date <= t:
                 # yahoo financeにアクセスして、株価を入手
                 return self.yfinace(company_code, start_date).dropna()
+        
+        else:
+            return pd.DataFrame()
 
     # DBの株価を更新する
     def update_stockdb(self, company_code):
@@ -407,6 +410,7 @@ if __name__ == "__main__":
     parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
     parser.add_argument('--stockdb', default='stockdb')
     parser.add_argument('--update_by_nikkei', action='store_true')
+    parser.add_argument('--yfinance', action='store_true')
     parser.add_argument('--skipuntil', default='')
     parser.add_argument('--sleep', default=1, type=float)
     parser.add_argument('--n', default=1, type=int)
