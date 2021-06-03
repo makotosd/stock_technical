@@ -11,6 +11,7 @@ import pandas as pd
 
 import requests
 from selenium import webdriver
+import chromedriver_binary
 import html5lib
 from bs4 import BeautifulSoup
 
@@ -129,4 +130,4 @@ if __name__ == '__main__':
         else:
             logging.info("no csv for %s" % (cc))
 
-        time.sleep(5)
+        time.sleep(1)
