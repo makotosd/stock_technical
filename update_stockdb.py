@@ -54,8 +54,8 @@ class Stockdb():
 
         if m == 0:
             engine = create_engine(args.url_db)
-            c = engine.connect()
-            c.execute("DROP TABLE IF EXISTS data_j;")
+            self.con = engine.connect()
+            self.con.execute("DROP TABLE IF EXISTS data_j;")
             df.to_sql("data_j", con=engine.connect(), index=True, index_label="cc", if_exists="replace")
 
         start = int(len(df.index) / n * m)
@@ -123,6 +123,23 @@ class Stockdb():
 
     # dbにデータ挿入
     def insert_data(self, company_code, data, tablename):
+        if len(data) == 0:
+            logging.info("  No data for %s" % (company_code))
+            return
+
+        dict = {'Open': 'open',
+            'Close': 'close',
+            'High': 'high',
+            'Low': 'low',
+            'Volume': 'volume',
+            'Adj': 'adj',
+            }
+        data.rename(columns=dict, inplace=True)
+        data['cc'] = company_code
+        data.to_sql(tablename, con=self.con, index_label='date', if_exists='append')
+
+    # dbにデータ挿入
+    def insert_data_onebyone(self, company_code, data, tablename):
         if len(data) == 0:
             logging.info("  No data for %s" % (company_code))
             return
