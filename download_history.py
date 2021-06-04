@@ -46,9 +46,11 @@ def yahoojp_session(target_url, login_id, password):
         cap["phantomjs.page.customHeaders." + key] = val
     cap["phantomjs.page.settings.userAgent"] = headers["User-Agent"]
 
+    options = webdriver.ChromeOptions()
+    options.add_experimental_option('excludeSwitches', ['enable-logging'])
     try:
         # <class 'selenium.webdriver.phantomjs.webdriver.WebDriver'>
-        driver = webdriver.Chrome()  # webdriver.PhantomJS()
+        driver = webdriver.Chrome(options=options)  # webdriver.PhantomJS()
     except Exception as e:
         logging.error(e)
         return None
