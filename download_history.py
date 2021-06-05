@@ -47,6 +47,7 @@ def yahoojp_session(target_url, login_id, password):
     cap["phantomjs.page.settings.userAgent"] = headers["User-Agent"]
 
     options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     try:
         # <class 'selenium.webdriver.phantomjs.webdriver.WebDriver'>
