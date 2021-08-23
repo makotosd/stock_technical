@@ -11,7 +11,7 @@ import pandas as pd
 
 import requests
 from selenium import webdriver
-import chromedriver_binary
+#import chromedriver_binary
 import html5lib
 from bs4 import BeautifulSoup
 
