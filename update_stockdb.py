@@ -138,6 +138,8 @@ class Stockdb():
         data['cc'] = company_code
         data.to_sql(tablename, con=self.con, index_label='date', if_exists='append')
 
+        self.mydb.commit()
+
     # dbにデータ挿入
     def insert_data_onebyone(self, company_code, data, tablename):
         if len(data) == 0:
