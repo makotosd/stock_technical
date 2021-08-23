@@ -176,6 +176,9 @@ class Stockdb():
 
     # dbにデータ挿入
     def update_adj(self, company_code, data, tablename):
+        if len(data) == 0:
+            logging.info("  No data for %s" % (company_code))
+            return
 
         sql = "SELECT date, adj FROM %s WHERE cc='%s' ORDER BY date DESC LIMIT 1"  % (tablename, company_code)
         self.mycursor.execute(sql)
