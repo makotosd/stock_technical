@@ -429,7 +429,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='stockdbの作成、更新')
     parser.add_argument('--dropdb', action='store_true')
     parser.add_argument('--historydb', action='store_true')
-    parser.add_argument('--url_db', default='mysql+mysqlconnector://stockdb:bdkcots@192.168.1.11:3306/stockdb')
+    parser.add_argument('--url_db', default='mysql+mysqlconnector://user:pass@192.168.1.1:3306/stockdb')
     parser.add_argument('--stockdb', default='stockdb')
     parser.add_argument('--update_by_nikkei', action='store_true')
     parser.add_argument('--yfinance', action='store_true')
